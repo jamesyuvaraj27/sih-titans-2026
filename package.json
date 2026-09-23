@@ -1,0 +1,16 @@
+{
+  "name": "samiksha",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SAMIKSHA — competency intelligence for India's Official Statistical System (SIH 2026, Team TITANS)",
+  "scripts": {
+    "setup": "cd server && npm install && cd ../web && npm install",
+    "db:up": "docker compose up -d db",
+    "db:reset": "cd server && npm run db:reset",
+    "dev:api": "cd server && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "test": "cd server && npm test",
+    "typecheck": "cd server && npm run typecheck && cd ../web && npm run typecheck",
+    "build": "cd server && npm run build && cd ../web && npm run build"
+  }
+}

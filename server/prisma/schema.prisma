@@ -1,0 +1,334 @@
+// SAMIKSHA — data model
+// Rule 1: Evidence is append-only (enforced by sql/002_ledger_rules.sql).
+// Rule 2: competency scores are never a column — see sql/003_scoring.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── org & people ───────────────────────────
+
+model Department {
+  id        String     @id
+  nameEn    String
+  nameHi    String?
+  kind      String // "MoSPI-HQ" | "DES-State" | "NSSO-FOD" | "NSSTA"
+  state     String?
+  officials Official[]
+}
+
+model RoleProfile {
+  id           String            @id
+  titleEn      String
+  titleHi      String?
+  cadre        String
+  description  String
+  requirements RoleRequirement[]
+  officials    Official[]
+}
+
+model RoleRequirement {
+  id            String      @id @default(cuid())
+  roleProfileId String
+  competencyId  String
+  targetLevel   Int // 1..4
+  criticality   Int // 1..3
+  rationale     String
+  roleProfile   RoleProfile @relation(fields: [roleProfileId], references: [id], onDelete: Cascade)
+  competency    Competency  @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([roleProfileId, competencyId])
+}
+
+model Official {
+  id             String       @id @default(cuid())
+  employeeCode   String       @unique
+  email          String       @unique
+  passwordHash   String
+  role           SystemRole   @default(LEARNER)
+  nameEn         String
+  nameHi         String?
+  designation    String
+  cadre          String?
+  departmentId   String
+  roleProfileId  String
+  dateOfBirth    DateTime?
+  dateOfJoining  DateTime
+  qualifications Json         @default("[]")
+  preferredLang  String       @default("en")
+  managerId      String?
+  createdAt      DateTime     @default(now())
+
+  department  Department    @relation(fields: [departmentId], references: [id])
+  roleProfile RoleProfile   @relation(fields: [roleProfileId], references: [id])
+  manager     Official?     @relation("Reports", fields: [managerId], references: [id])
+  reports     Official[]    @relation("Reports")
+  evidence    Evidence[]
+  sessions    QuizSession[]
+  documents   Document[]
+
+  @@index([departmentId])
+}
+
+enum SystemRole {
+  LEARNER
+  MANAGER
+  DEPT_ADMIN
+  SUPER_ADMIN
+  AUDITOR
+}
+
+// ─────────────────────────── ontology ───────────────────────────
+
+model Competency {
+  id                  String @id // "STAT.SAMP.STRAT"
+  domain              String // STAT | TECH | GOVN | BEHV
+  area                String
+  nameEn              String
+  nameHi              String?
+  description         String
+  gsbpmPhases         String[] @default([])
+  decayHalfLifeMonths Int      @default(48)
+  estHours            Int      @default(8)
+  levelAnchors        Json // { L1, L2, L3, L4 }
+  embedding           Unsupported("vector(64)")?
+
+  outgoing     CompetencyEdge[]  @relation("EdgeFrom")
+  incoming     CompetencyEdge[]  @relation("EdgeTo")
+  requirements RoleRequirement[]
+  courses      CourseCompetency[]
+  evidence     Evidence[]
+  questions    QuestionItem[]
+  chunks       ChunkCompetency[]
+
+  @@index([domain])
+}
+
+enum EdgeKind {
+  REQUIRES // hard prerequisite: from -> to
+  SUBSUMES // mastery of `from` gives partial credit in `to`
+  ADJACENT // transferable skill, weighted
+}
+
+model CompetencyEdge {
+  id           String     @id @default(cuid())
+  fromId       String
+  toId         String
+  kind         EdgeKind
+  weight       Float      @default(1.0)
+  minFromLevel Int        @default(2) // level required in `from` to satisfy REQUIRES
+  from         Competency @relation("EdgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to           Competency @relation("EdgeTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, kind])
+  @@index([toId, kind])
+  @@index([fromId, kind])
+}
+
+model Course {
+  id           String  @id // Sunbird-style "do_" identifier
+  name         String
+  provider     String // "iGOT" | "NSSTA" | "TPAC"
+  description  String
+  durationMins Int
+  language     String  @default("en")
+  level        String  @default("L2")
+  url          String?
+  completionRate Float @default(0.6)
+  tpacFlagged  Boolean @default(false)
+
+  competencies CourseCompetency[]
+}
+
+model CourseCompetency {
+  courseId     String
+  competencyId String
+  targetLevel  Int    @default(2)
+  course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  competency   Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, competencyId])
+}
+
+// ─────────────────── THE EVIDENCE LEDGER (append-only) ───────────────────
+
+enum EvidenceKind {
+  ASSESSMENT // graded assessment on this platform
+  PROJECT_ARTIFACT // verified work output, supervisor-signed
+  COURSE_COMPLETION // iGOT / NSSTA completion
+  ATTESTATION // supervisor attestation
+  PRIOR_TRAINING // historic training record
+  SELF_DECLARATION // official's own claim
+}
+
+model Evidence {
+  id             String       @id @default(cuid())
+  officialId     String
+  competencyId   String
+  kind           EvidenceKind
+  quality        Float // 0..1
+  occurredAt     DateTime
+  recordedAt     DateTime     @default(now())
+  sourceType     String
+  sourceRef      String
+  summary        String
+  payload        Json         @default("{}")
+  supersededById String?
+
+  official   Official   @relation(fields: [officialId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@index([officialId, competencyId, occurredAt])
+  @@index([officialId, occurredAt])
+}
+
+/// Cache only. Safe to TRUNCATE at any time — the ledger is the truth.
+model CompetencyScoreCache {
+  officialId   String
+  competencyId String
+  score        Float
+  level        Int
+  confidence   Float
+  computedAt   DateTime @default(now())
+
+  @@id([officialId, competencyId])
+}
+
+// ─────────────────────────── content & assessment ───────────────────────────
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  filename    String
+  mimeType    String
+  pages       Int      @default(0)
+  uploadedById String
+  createdAt   DateTime @default(now())
+  status      String   @default("READY") // INGESTING | READY | FAILED
+  uploadedBy  Official @relation(fields: [uploadedById], references: [id])
+  chunks      Chunk[]
+  questions   QuestionItem[]
+}
+
+model Chunk {
+  id          String  @id @default(cuid())
+  documentId  String
+  ordinal     Int
+  text        String
+  headingPath String  @default("")
+  page        Int     @default(1)
+  embedding   Unsupported("vector(64)")?
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  competencies ChunkCompetency[]
+  questions   QuestionItem[]
+
+  @@index([documentId, ordinal])
+}
+
+model ChunkCompetency {
+  chunkId      String
+  competencyId String
+  similarity   Float
+  chunk        Chunk      @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  competency   Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@id([chunkId, competencyId])
+}
+
+enum ItemStatus {
+  CANDIDATE // generated, passed the gate, awaiting trainer review
+  REJECTED // failed the gate or rejected by a trainer
+  APPROVED // in the live bank
+}
+
+model QuestionItem {
+  id                String     @id @default(cuid())
+  documentId        String
+  chunkId           String
+  competencyId      String
+  stem              String
+  options           String[]
+  correctIndex      Int
+  rationaleCorrect  String
+  distractorReasons String[]
+  bloom             String // REMEMBER | UNDERSTAND | APPLY | ANALYZE | EVALUATE
+  sourceQuote       String
+  page              Int
+  headingPath       String     @default("")
+  difficulty        String     @default("MEDIUM") // EASY | MEDIUM | HARD
+  difficultyScore   Float      @default(0.5)
+  status            ItemStatus @default(CANDIDATE)
+  gateResults       Json       @default("[]") // [{code, passed, detail}]
+  rejectReason      String?
+  reviewedById      String?
+  createdAt         DateTime   @default(now())
+
+  document   Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunk      Chunk      @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  responses  ItemResponse[]
+
+  @@index([documentId, status])
+  @@index([competencyId, status])
+}
+
+model QuizSession {
+  id            String   @id @default(cuid())
+  officialId    String
+  title         String
+  competencyIds String[]
+  startedAt     DateTime @default(now())
+  submittedAt   DateTime?
+  scorePct      Float?
+  official      Official @relation(fields: [officialId], references: [id], onDelete: Cascade)
+  responses     ItemResponse[]
+
+  @@index([officialId, startedAt])
+}
+
+model ItemResponse {
+  id            String   @id @default(cuid())
+  sessionId     String
+  questionId    String
+  ordinal       Int
+  selectedIndex Int?
+  correct       Boolean?
+  answeredAt    DateTime?
+  session       QuizSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question      QuestionItem @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+  @@index([sessionId, ordinal])
+}
+
+// ─────────────────────────── governance ───────────────────────────
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  actorId     String?
+  action      String
+  subjectType String
+  subjectId   String
+  at          DateTime @default(now())
+  meta        Json     @default("{}")
+
+  @@index([subjectType, subjectId, at])
+  @@index([actorId, at])
+}
+
+/// Drives the `urgency` term in gap severity.
+model SurveyCalendarEntry {
+  id            String   @id @default(cuid())
+  name          String
+  owner         String
+  startsOn      DateTime
+  endsOn        DateTime
+  competencyIds String[]
+  headcount     Int      @default(0)
+  notes         String   @default("")
+}

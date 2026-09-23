@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SAMIKSHA design tokens
+
+   Direction: institutional clarity. Flat, structural, high-density, quiet.
+   Government software earns trust by looking like a well-made instrument,
+   not a startup landing page. No glassmorphism, no decorative gradients, no
+   tricolour pastiche — a saffron/white/green header reads as amateur, not
+   patriotic.
+
+   Every ratio below was MEASURED, not eyeballed. The amber focus ring failed
+   the first check at 2.15:1 on white, which is why it has a dark inner ring.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  /* surfaces */
+  --bg:             #FFFFFF;
+  --surface:        #F8FAFC;
+  --surface-raised: #FFFFFF;
+  --border:         #E2E8F0;
+  --border-strong:  #CBD5E1;
+
+  /* text — measured ratios vs --bg */
+  --text:        #0F172A;   /* 17.85:1  AAA */
+  --text-muted:  #475569;   /*  7.58:1  AAA */
+  --text-subtle: #64748B;   /*  4.76:1  AA — body minimum, do not go lighter */
+
+  /* brand */
+  --primary:       #1D4ED8;  /* white on it: 6.70:1  AA */
+  --primary-hover: #1E40AF;
+  --primary-soft:  #EFF6FF;
+
+  /* status — ALWAYS paired with an icon and a text label */
+  --critical: #B91C1C;  /* white on it: 6.47:1 */
+  --moderate: #B45309;  /* white on it: 5.02:1 */
+  --minor:    #0F766E;  /* white on it: 5.47:1 */
+  --success:  #15803D;
+  --info:     #0369A1;
+
+  /* proficiency ramp — sequential, colour-blind safe, always labelled L0–L4.
+     Label text flips to white at prof-3 and above. */
+  --prof-0: #F1F5F9;
+  --prof-1: #DBEAFE;
+  --prof-2: #93C5FD;
+  --prof-3: #3B82F6;
+  --prof-4: #1E3A8A;
+
+  /* focus — TWO LAYERS, deliberately. Amber alone is 2.15:1 on white, which
+     fails the 3:1 non-text requirement. The dark inner ring guarantees ≥3:1
+     against any surface; the amber outer guarantees visibility on dark ones.
+     Never ship the amber ring on its own. */
+  --focus-ring:       #F59E0B;
+  --focus-ring-inner: #0F172A;
+
+  --radius:    6px;
+  --radius-lg: 10px;
+  --shadow-1: 0 1px 2px rgb(15 23 42 / .06);
+  --shadow-2: 0 4px 12px rgb(15 23 42 / .10);
+}
+
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+    --bg: #0B1220; --surface: #111A2B; --surface-raised: #16223A;
+    --border: #1F2E45; --border-strong: #2C3E5C;
+    --text: #E6EDF7;        /* 15.89:1 */
+    --text-muted: #A3B2C7;  /*  8.69:1 */
+    --text-subtle: #7D8DA5; /*  5.55:1 */
+    --primary: #60A5FA; --primary-hover: #93C5FD; --primary-soft: #12213C;
+    --critical: #F87171; --moderate: #FBBF24; --minor: #2DD4BF;
+    --success: #4ADE80; --info: #38BDF8;
+    --prof-0: #1B2537; --prof-1: #1E3A5F; --prof-2: #2563EB;
+    --prof-3: #60A5FA; --prof-4: #BFDBFE;
+    --focus-ring-inner: #FFFFFF;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0B1220; --surface: #111A2B; --surface-raised: #16223A;
+  --border: #1F2E45; --border-strong: #2C3E5C;
+  --text: #E6EDF7; --text-muted: #A3B2C7; --text-subtle: #7D8DA5;
+  --primary: #60A5FA; --primary-hover: #93C5FD; --primary-soft: #12213C;
+  --critical: #F87171; --moderate: #FBBF24; --minor: #2DD4BF;
+  --success: #4ADE80; --info: #38BDF8;
+  --prof-0: #1B2537; --prof-1: #1E3A5F; --prof-2: #2563EB;
+  --prof-3: #60A5FA; --prof-4: #BFDBFE;
+  --focus-ring-inner: #FFFFFF;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Indic scripts need more leading — matras and vowel signs clip at 1.5 */
+  :lang(hi) body, [lang='hi'] { line-height: 1.65; }
+
+  h1, h2, h3, h4 { line-height: 1.25; font-weight: 600; }
+
+  /* Every number in a table, axis, score or countdown. Proportional figures
+     make columns jitter and it reads as amateur. */
+  table, .tnum, td, th { font-variant-numeric: tabular-nums; }
+
+  /* The only focus style in the codebase. `outline: none` anywhere is a
+     failing review. */
+  :where(a, button, input, select, textarea, [tabindex], [role='button']):focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--focus-ring-inner);
+    border-radius: 4px;
+  }
+
+  ::selection { background: var(--primary-soft); color: var(--text); }
+}
+
+@layer components {
+  .card {
+    /* `position: relative` is load-bearing: sr-only text is absolutely
+       positioned, and without a positioned ancestor its containing block is
+       the viewport — so a screen-reader label on a cell 1,600px into a
+       horizontally scrolled table pushes the whole PAGE 1,600px wide.
+       That is how you get a mysterious horizontal scrollbar on a page whose
+       every visible element fits. Containing it here fixes it everywhere. */
+    position: relative;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-1);
+  }
+  .skip-link {
+    position: absolute; left: -9999px; top: 0; z-index: 1000;
+    background: var(--primary); color: #fff; padding: 10px 16px; border-radius: 0 0 6px 0;
+  }
+  .skip-link:focus { left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

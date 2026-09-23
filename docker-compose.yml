@@ -1,0 +1,30 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: samiksha-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: samiksha
+    ports: ['5432:5432']
+    volumes: ['samiksha-pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d samiksha']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # Optional: the sovereign / air-gapped generator.
+  #   docker compose --profile sovereign up -d
+  #   docker exec -it samiksha-ollama ollama pull qwen2.5:3b-instruct
+  # then set AI_PROVIDER=ollama in server/.env
+  ollama:
+    image: ollama/ollama:latest
+    container_name: samiksha-ollama
+    profiles: ['sovereign']
+    ports: ['11434:11434']
+    volumes: ['samiksha-ollama:/root/.ollama']
+
+volumes:
+  samiksha-pgdata:
+  samiksha-ollama:
