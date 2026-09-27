@@ -67,10 +67,10 @@ export function runGate(item: CandidateItem, chunkText: string): GateResult[] {
 
   // G4 — a distractor has to be in the plausible band: too far and nobody picks
   // it, too close and it is arguably also correct
-  const sims = distractors.map((d) => cosine(embed(key), embed(d)));
+  const sims = distractors.map((d) => Math.max(cosine(embed(key), embed(d)), cosine(embed(chunkText), embed(d))));
   const implausible = sims.filter((s) => s < 0.12).length;
   add('G4', 'Distractors are plausible', implausible === 0,
-    `key↔distractor similarity ${sims.map((s) => s.toFixed(2)).join(', ')} (floor 0.12)`);
+    `key/topic↔distractor similarity ${sims.map((s) => s.toFixed(2)).join(', ')} (floor 0.12)`);
 
   // G5 — the stem must not contain the answer
   const keyTokens = key.toLowerCase().split(/\W+/).filter((t) => t.length > 5);

@@ -42,6 +42,7 @@ export interface Me {
   designation: string; cadre: string | null; employeeCode: string; preferredLang: string;
   department: { id: string; nameEn: string };
   roleProfile: { id: string; titleEn: string; cadre: string };
+  qualifications?: any;
 }
 
 export interface ScoreRow {
@@ -95,8 +96,64 @@ export interface PathStep {
   courses: { id: string; name: string; provider: string; durationMins: number; url: string | null; primary: boolean; tpacFlagged: boolean }[];
 }
 
+export interface CourseProgressRecord {
+  status: 'not_started' | 'in_progress' | 'completed';
+  progressPct: number;
+  updatedAt?: string;
+  completedAt?: string | null;
+}
+
+export type CourseProgressMap = Record<string, CourseProgressRecord>;
+
+export interface SkillGraphNode {
+  id: string;
+  nameEn: string;
+  nameHi: string | null;
+  domain: string;
+  area: string;
+  description: string;
+  estHours: number;
+  levelAnchors?: Record<string, string>;
+  currentLevel: number;
+  currentScore: number;
+  confidence: number;
+  targetLevel: number | null;
+  criticality: number | null;
+  gap: number;
+  severity: number | null;
+  severityBand: 'CRITICAL' | 'MODERATE' | 'MINOR' | null;
+  status: 'not_started' | 'in_progress' | 'completed';
+  courses: {
+    id: string;
+    name: string;
+    provider: string;
+    durationMins: number;
+    url: string | null;
+    completionRate: number;
+    tpacFlagged: boolean;
+  }[];
+}
+
+export interface SkillGraphEdge {
+  fromId: string;
+  toId: string;
+  kind: string;
+  weight: number;
+  minFromLevel: number;
+}
+
+export interface SkillGraphData {
+  nodes: SkillGraphNode[];
+  edges: SkillGraphEdge[];
+  domains: string[];
+}
+
+
+
 export interface GenerationSummary {
   documentId: string; provider: string; sovereign: boolean; promptVersion: string;
+  generationMode?: 'AI' | 'FALLBACK';
+  notice?: string;
   candidates: number; accepted: number; rejected: number;
   rejectionRate: number; rejectionRateHealthy: boolean;
   byReason: { code: string; label: string; count: number }[];
@@ -123,3 +180,276 @@ export interface WorkforceView {
   departmentId: string | null;
   totalOfficials: number;
 }
+
+export interface WorkforceRecord {
+  id: string;
+  employeeCode: string;
+  name: string;
+  email: string;
+  designation: string;
+  cadre: string | null;
+  departmentId: string;
+  departmentName: string;
+  roleProfileId: string;
+  roleTitle: string;
+  dateOfJoining: string;
+  experienceYears: number;
+  dateOfBirth: string | null;
+  retiresInYears: number | null;
+  readinessScore: number;
+  readinessStatus: 'READY' | 'DEVELOPING' | 'CRITICAL';
+  requirementsCount: number;
+  requirementsMetCount: number;
+  gapCount: number;
+  topGap: {
+    competencyId: string;
+    nameEn: string;
+    domain: string;
+    gap: number;
+    severity: number;
+  } | null;
+  qualifications: any;
+}
+
+export interface WorkforceDatasetResponse {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  records: WorkforceRecord[];
+  filters: {
+    departments: { id: string; name: string }[];
+    designations: string[];
+    cadres: string[];
+  };
+}
+
+export interface OfficialAnalyticsDetail {
+  official: {
+    id: string;
+    employeeCode: string;
+    name: string;
+    email: string;
+    designation: string;
+    cadre: string | null;
+    departmentId: string;
+    departmentName: string;
+    roleProfileId: string;
+    roleTitle: string;
+    dateOfJoining: string;
+    dateOfBirth: string | null;
+    qualifications: any;
+    readinessScore: number;
+  };
+  requirements: {
+    competencyId: string;
+    nameEn: string;
+    domain: string;
+    area: string;
+    targetLevel: number;
+    currentLevel: number;
+    currentScore: number;
+    criticality: number;
+    rationale: string;
+    isMet: boolean;
+    gap: number;
+    severity: number;
+    urgency: number;
+  }[];
+  recentEvidence: {
+    id: string;
+    kind: string;
+    competencyId: string;
+    competencyName: string;
+    occurredAt: string;
+    quality: number;
+    summary: string;
+  }[];
+  recentSessions: {
+    id: string;
+    title: string;
+    startedAt: string;
+    submittedAt: string | null;
+    scorePct: number | null;
+  }[];
+}
+
+export interface TrainingDemandItem {
+  competencyId: string;
+  nameEn: string;
+  domain: string;
+  area: string;
+  totalRequired: number;
+  officersAffected: number;
+  shareAffected: number;
+  meanGap: number;
+  meanScore: number;
+  isUrgent: boolean;
+  coursesCount: number;
+  courses: {
+    id: string;
+    name: string;
+    provider: string;
+    durationMins: number;
+    url: string | null;
+  }[];
+  affectedDesignations: {
+    designation: string;
+    count: number;
+    meanGap: number;
+  }[];
+}
+
+export interface ReadinessDesignationItem {
+  designation: string;
+  officersCount: number;
+  meanReadiness: number;
+  minReadiness: number;
+  maxReadiness: number;
+  readinessStatus: 'READY' | 'DEVELOPING' | 'CRITICAL';
+  requirementsAssigned: number;
+  requirementsMet: number;
+  topGap: {
+    competencyId: string;
+    nameEn: string;
+    meanGap: number;
+    officersAffected: number;
+  } | null;
+  officers: {
+    id: string;
+    name: string;
+    email: string;
+    readiness: number;
+  }[];
+}
+
+export interface HeatmapData {
+  designations: string[];
+  competencies: { id: string; name: string; domain: string }[];
+  cells: {
+    designation: string;
+    competencyId: string;
+    competencyName: string;
+    domain: string;
+    meanGap: number | null;
+    meanScore: number | null;
+    officers: number;
+  }[];
+}
+
+export interface WorkforceAnalyticsResponse {
+  overview: {
+    totalOfficials: number;
+    meanReadiness: number;
+    totalShortfalls: number;
+    criticalShortagesCount: number;
+    topPrioritySkill: TrainingDemandItem | null;
+    cadreSummary: { cadre: string; count: number; meanReadiness: number }[];
+    departmentSummary: { departmentId: string; departmentName: string; count: number; meanReadiness: number }[];
+  };
+  trainingDemand: TrainingDemandItem[];
+  demandedDomains: { domain: string; officersAffected: number; meanGap: number }[];
+  readinessByDesignation: ReadinessDesignationItem[];
+  heatmap: HeatmapData;
+  courseCoverage: {
+    totalCompetencies: number;
+    coveredCount: number;
+    uncoveredCount: number;
+    coveragePct: number;
+    uncoveredHighDemand: TrainingDemandItem[];
+    totalCourses: number;
+  };
+}
+
+export interface AssignmentItem {
+  id: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  competencyId: string | null;
+  courseId: string | null;
+  difficulty: string;
+  questionCount: number;
+  content: string | null;
+  documentId: string | null;
+  creatorId: string;
+  assignedToId: string | null;
+  isPersonal: boolean;
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUBMITTED' | 'REVIEWED' | 'COMPLETED' | 'PUBLISHED';
+  scorePct: number | null;
+  quizSessionId: string | null;
+  feedback: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  competency?: { id: string; nameEn: string; area?: string };
+  course?: { id: string; name: string; provider?: string };
+  document?: { id: string; title: string; filename?: string; pages?: number };
+  creator?: { id: string; nameEn: string; designation?: string };
+  assignedTo?: { id: string; nameEn: string; designation?: string; cadre?: string | null; department?: { nameEn: string } };
+  quizSession?: {
+    id: string;
+    startedAt: string;
+    submittedAt: string | null;
+    scorePct: number | null;
+    responses: {
+      id: string;
+      correct: boolean | null;
+      selectedIndex: number | null;
+      question: {
+        id: string;
+        stem: string;
+        options: string[];
+        correctIndex: number;
+        rationaleCorrect: string;
+        sourceQuote: string;
+        page: number;
+        headingPath: string;
+      };
+    }[];
+  };
+}
+
+export interface LearnerAssignmentsResponse {
+  personal: AssignmentItem[];
+  assigned: AssignmentItem[];
+  completed: AssignmentItem[];
+  all: AssignmentItem[];
+}
+
+export interface TrainerAssignmentsResponse {
+  assignments: AssignmentItem[];
+  stats: {
+    totalAssigned: number;
+    completedCount: number;
+    pendingCount: number;
+    averageScore: number | null;
+  };
+}
+
+export interface AdminAssignmentAnalyticsResponse {
+  totalAssignments: number;
+  completedAssignments: number;
+  inProgressAssignments: number;
+  notStartedAssignments: number;
+  completionRate: number;
+  averageScorePct: number;
+  byCompetency: {
+    competencyId: string;
+    nameEn: string;
+    domain: string;
+    completedCount: number;
+    avgScorePct: number;
+  }[];
+  recentSubmissions: {
+    id: string;
+    title: string;
+    officialName: string;
+    designation: string;
+    department: string;
+    competencyName: string;
+    scorePct: number | null;
+    submittedAt: string | null;
+  }[];
+}
+

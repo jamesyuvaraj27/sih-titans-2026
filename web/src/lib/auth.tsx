@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, getToken, post, setToken, type Me } from './api.js';
+import { normalizeRole, type CanonicalRole } from './format.js';
 
 interface AuthValue {
   me: Me | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  can: (...roles: Me['role'][]) => boolean;
+  can: (...roles: (Me['role'] | CanonicalRole | string)[]) => boolean;
 }
 
 const Ctx = createContext<AuthValue | null>(null);
@@ -33,7 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthValue>(() => ({
     me, loading, login, logout,
-    can: (...roles) => !!me && roles.includes(me.role),
+    can: (...roles) => {
+      if (!me) return false;
+      const myNorm = normalizeRole(me.role);
+      return roles.some((r) => normalizeRole(r) === myNorm || r === me.role);
+    },
   }), [me, loading, login, logout]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -116,12 +116,24 @@ async function main() {
 
   const named = await prisma.official.create({
     data: {
-      id: 'off_anitha', employeeCode: 'SSS/AP/2011/0417', email: 'anitha@mospi.gov.in',
-      passwordHash: pw, role: 'LEARNER', nameEn: 'Anitha Rao', nameHi: 'अनीता राव',
-      designation: 'Senior Statistical Officer', cadre: 'Subordinate Statistical Service',
+      id: 'off_anitha', employeeCode: 'SSS/AP/2011/0417', email: 'vinaykumarbade2007@gmail.com',
+      passwordHash: pw, role: 'LEARNER', nameEn: 'Vinay Kumar Bade',
+      designation: 'Software Engineer', cadre: 'Subordinate Statistical Service',
       departmentId: 'DEPT.NSSO.FOD', roleProfileId: 'ROLE.SSO',
-      dateOfBirth: new Date('1986-03-14'), dateOfJoining: new Date('2011-07-01'),
-      qualifications: [{ degree: 'M.Sc.', subject: 'Statistics', year: 2010, institution: 'Andhra University' }],
+      dateOfBirth: new Date('1997-03-14'), dateOfJoining: new Date('2019-07-01'),
+      qualifications: {
+        skills: ['Python', 'C', 'C++', 'Java', 'JavaScript', 'HTML'],
+        currentJobRole: 'Software Engineer',
+        desiredJobRole: 'Data Analyst',
+        academic: {
+          highestQualification: 'B.Tech',
+          degree: 'B.Tech',
+          specialization: 'Computer Science and Engineering (CSE)',
+          institution: 'Vignan',
+          graduationYear: '2019',
+          academicScore: '8.4 CGPA',
+        },
+      },
       preferredLang: 'en',
     },
   });
@@ -309,7 +321,7 @@ async function main() {
   };
   console.log('✓ seeded', counts);
   console.log('\n  demo logins (password: demo1234)');
-  console.log('    anitha@mospi.gov.in   LEARNER     — the demo persona');
+  console.log('    vinaykumarbade2007@gmail.com   LEARNER     — the demo persona');
   console.log('    rajesh@nssta.gov.in   MANAGER     — trainer: upload + review');
   console.log('    admin@mospi.gov.in    SUPER_ADMIN — workforce dashboard, all departments');
   console.log('    dept@ap.gov.in        DEPT_ADMIN  — scoped to AP state DES only');

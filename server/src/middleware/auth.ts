@@ -28,14 +28,36 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-/** Role gate. Order matters only for readability — membership is a set test. */
-export function requireRole(...roles: SystemRole[]) {
+export type CanonicalRole = 'LEARNER' | 'TRAINER' | 'ADMINISTRATOR';
+
+export function normalizeRole(role: string): CanonicalRole {
+  const upper = String(role).toUpperCase().trim();
+  if (upper === 'LEARNER') return 'LEARNER';
+  if (upper === 'TRAINER' || upper === 'MANAGER') return 'TRAINER';
+  return 'ADMINISTRATOR'; // DEPT_ADMIN, SUPER_ADMIN, AUDITOR, ADMINISTRATOR
+}
+
+export function roleDisplay(role: string): string {
+  const norm = normalizeRole(role);
+  if (norm === 'LEARNER') return 'Learner';
+  if (norm === 'TRAINER') return 'Trainer';
+  return 'Administrator';
+}
+
+/** Role gate enforcing SIH26101 canonical application roles: LEARNER, TRAINER, ADMINISTRATOR. */
+export function requireRole(...roles: (SystemRole | CanonicalRole | string)[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.session) return res.status(401).json({ error: 'Authentication required' });
-    if (!roles.includes(req.session.role)) {
+
+    const userCanonical = normalizeRole(req.session.role);
+    const allowedCanonicals = new Set(roles.map((r) => normalizeRole(String(r))));
+    const exactMatch = roles.includes(req.session.role as any);
+
+    if (!allowedCanonicals.has(userCanonical) && !exactMatch) {
+      const friendlyAllowed = Array.from(allowedCanonicals).map(roleDisplay);
       return res.status(403).json({
         error: 'Not permitted for your role',
-        detail: `Requires one of: ${roles.join(', ')}. You are ${req.session.role}.`,
+        detail: `Requires one of: ${friendlyAllowed.join(', ')}. You are ${roleDisplay(req.session.role)}.`,
       });
     }
     next();
@@ -45,21 +67,21 @@ export function requireRole(...roles: SystemRole[]) {
 /**
  * Can the caller see this official's competency data?
  *   own data                      → always
- *   MANAGER                       → direct reports
- *   DEPT_ADMIN                    → own department
- *   SUPER_ADMIN / AUDITOR         → everyone
- * This is the second of the two layers; the first is the route-level role gate.
+ *   ADMINISTRATOR                 → full workforce visibility
+ *   TRAINER                       → direct reports / trainees
+ *   LEARNER                       → own data only
  */
 export async function canViewOfficial(session: Session, officialId: string): Promise<boolean> {
   if (session.sub === officialId) return true;
-  if (session.role === 'SUPER_ADMIN' || session.role === 'AUDITOR') return true;
-  const target = await prisma.official.findUnique({
-    where: { id: officialId },
-    select: { departmentId: true, managerId: true },
-  });
-  if (!target) return false;
-  if (session.role === 'DEPT_ADMIN') return target.departmentId === session.departmentId;
-  if (session.role === 'MANAGER') return target.managerId === session.sub;
+  const canonical = normalizeRole(session.role);
+  if (canonical === 'ADMINISTRATOR') return true;
+  if (canonical === 'TRAINER') {
+    const target = await prisma.official.findUnique({
+      where: { id: officialId },
+      select: { managerId: true },
+    });
+    return target?.managerId === session.sub;
+  }
   return false;
 }
 

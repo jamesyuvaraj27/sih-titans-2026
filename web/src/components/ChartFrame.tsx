@@ -3,7 +3,7 @@ import { BarChart3, Table2 } from 'lucide-react';
 import { Button } from './ui.js';
 
 /**
- * Every chart in SAMIKSHA is wrapped in this.
+ * Every chart in STATINTEL is wrapped in this.
  *
  * Two WCAG requirements are satisfied structurally rather than by remembering:
  *   • a chart alone is not screen-reader navigable, so every chart ships with

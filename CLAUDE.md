@@ -1,6 +1,6 @@
-# SAMIKSHA — agent context
+# STATINTEL — agent context
 
-AI-enabled competency intelligence & learning platform for India's Official
+AI-Enabled Competency & Learning Intelligence Platform for India's Official
 Statistical System (MoSPI), SIH 2026, team TITANS.
 
 **This is a PROTOTYPE optimised for a live jury demo.** Priority order for every

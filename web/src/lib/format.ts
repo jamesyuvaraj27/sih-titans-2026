@@ -48,3 +48,31 @@ export function confidenceLabel(c: number): { text: string; tone: 'high' | 'medi
   if (c >= 0.4) return { text: 'Medium confidence', tone: 'medium' };
   return { text: 'Low confidence — take a diagnostic to confirm', tone: 'low' };
 }
+
+export type CanonicalRole = 'LEARNER' | 'TRAINER' | 'ADMINISTRATOR';
+
+export function normalizeRole(role: string | null | undefined): CanonicalRole {
+  if (!role) return 'LEARNER';
+  const upper = String(role).toUpperCase().trim();
+  if (upper === 'LEARNER') return 'LEARNER';
+  if (upper === 'TRAINER' || upper === 'MANAGER') return 'TRAINER';
+  return 'ADMINISTRATOR'; // DEPT_ADMIN, SUPER_ADMIN, AUDITOR, ADMINISTRATOR
+}
+
+export const ROLE_LABELS: Record<string, string> = {
+  LEARNER: 'Learner',
+  TRAINER: 'Trainer',
+  MANAGER: 'Trainer',
+  ADMINISTRATOR: 'Administrator',
+  DEPT_ADMIN: 'Administrator',
+  SUPER_ADMIN: 'Administrator',
+  AUDITOR: 'Administrator',
+};
+
+export const roleLabel = (role: string | null | undefined): string => {
+  const norm = normalizeRole(role);
+  if (norm === 'LEARNER') return 'Learner';
+  if (norm === 'TRAINER') return 'Trainer';
+  return 'Administrator';
+};
+

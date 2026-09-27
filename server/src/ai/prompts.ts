@@ -59,7 +59,8 @@ Write ${c.count} multiple-choice questions. Rules, all mandatory:
 2. Exactly four options. Exactly one correct.
 3. Distractors must be wrong for a specific, nameable reason — a common
    misconception, a plausible confusion with an adjacent concept, or a
-   characteristic calculation error. Never nonsense options.
+   characteristic calculation error. Distractors must share domain context and subject
+   vocabulary with the topic so they represent plausible alternative statistical techniques. Never nonsense options.
 4. Options must be of similar length and grammatically parallel.
 5. Never use "All of the above", "None of the above", "Both A and B".
 6. Use Indian statistical context where the source permits (NSS rounds, CPI,

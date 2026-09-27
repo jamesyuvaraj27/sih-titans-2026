@@ -1,5 +1,5 @@
 /**
- * SAMIKSHA competency ontology — v1, 60 leaf competencies.
+ * STATINTEL competency ontology — v1, 60 leaf competencies.
  *
  * Domains and competency names follow the four domains named in the SIH 2026
  * problem statement. Course names and role titles are modelled on MoSPI /

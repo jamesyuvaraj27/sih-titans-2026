@@ -1,7 +1,7 @@
-# SAMIKSHA · समीक्षा
+# STATINTEL
 
-**AI-enabled competency intelligence and learning platform for India's Official Statistical System.**
-SIH 2026 · Team TITANS · MoSPI problem statement (iGOT Karmayogi integration).
+**AI-Enabled Competency & Learning Intelligence Platform for India's Official Statistical System**
+SIH 2026 · Team TITANS · Problem Statement SIH26101 (MoSPI · iGOT Karmayogi & NSSTA TPAC).
 
 > Every competency score in this system is **computed, never stored** — derived on demand
 > from an append-only ledger of dated, weighted, decaying evidence. Any score can be
@@ -122,7 +122,7 @@ why, is in `docs/DECISIONS.md`. Read `CLAUDE.md` before changing anything.
 ## Repository
 
 ```
-samiksha/
+statintel/
 ├── CLAUDE.md                  agent + contributor constitution — read first
 ├── docker-compose.yml         postgres + pgvector
 ├── docs/

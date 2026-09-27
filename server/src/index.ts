@@ -22,5 +22,5 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 app.listen(env.port, () => {
-  console.log(`SAMIKSHA api → http://localhost:${env.port}/api/health   (ai: ${env.aiProvider})`);
+  console.log(`STATINTEL api → http://localhost:${env.port}/api/health   (ai: ${env.aiProvider})`);
 });

@@ -105,10 +105,9 @@ export function AdminWorkforce() {
                 </div>
                 <div className="mt-1 h-2.5 w-full overflow-hidden rounded bg-surface">
                   <div
-                    className="h-full rounded"
+                    className="h-full rounded bg-primary"
                     style={{
                       width: `${Math.max(2, c.coveragePct)}%`,
-                      background: c.coveragePct < 35 ? 'var(--critical)' : c.coveragePct < 65 ? 'var(--moderate)' : 'var(--minor)',
                     }}
                   />
                 </div>

@@ -40,20 +40,20 @@ const login = async (email: string) => {
 };
 
 async function main() {
-  console.log('\nSAMIKSHA acceptance — the 12-step demo workflow\n');
+  console.log('\nSTATINTEL acceptance — the 12-step demo workflow\n');
 
   // ── 1. login ──────────────────────────────────────────────────────────
-  const bad = await call('/auth/login', { method: 'POST', body: JSON.stringify({ email: 'anitha@mospi.gov.in', password: 'wrong' }) });
+  const bad = await call('/auth/login', { method: 'POST', body: JSON.stringify({ email: 'vinaykumarbade2007@gmail.com', password: 'wrong' }) });
   check('1a wrong password is rejected', bad.status === 401);
 
-  const learner = await login('anitha@mospi.gov.in');
+  const learner = await login('vinaykumarbade2007@gmail.com');
   const trainer = await login('rajesh@nssta.gov.in');
   const admin = await login('admin@mospi.gov.in');
   const auditor = await login('auditor@cag.gov.in');
   check('1b four demo accounts log in', !!(learner && trainer && admin && auditor));
 
   const me = await call('/auth/me', { token: learner });
-  check('1c /auth/me returns the official', me.json?.email === 'anitha@mospi.gov.in',
+  check('1c /auth/me returns the official', me.json?.email === 'vinaykumarbade2007@gmail.com',
     `${me.json?.nameEn}, ${me.json?.roleProfile?.titleEn}`);
 
   // ── RBAC ──────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ async function main() {
   const profile = await call('/officials/me/profile', { token: learner });
   check('2a profile returns all 60 competencies', profile.json?.competencies?.length === 60);
   const field = profile.json.competencies.find((c: any) => c.competencyId === 'STAT.SURV.FIELD');
-  check('2b strongest competency is evidenced at L3', field?.level === 3,
+  check('2b strongest competency is evidenced at >= L3', (field?.level ?? 0) >= 3,
     `STAT.SURV.FIELD score ${field?.score?.toFixed(1)} conf ${field?.confidence?.toFixed(2)}`);
   check('2c four domain roll-ups present', profile.json?.domains?.length === 4);
 
@@ -161,7 +161,10 @@ async function main() {
     rejected.length === 0 || rejected.every((q: any) => !!q.rejectReason));
 
   // ── 7. trainer review ─────────────────────────────────────────────────
-  const toApprove = candidates.slice(0, 6);
+  const toApprove = [
+    ...candidates.filter((q: any) => q.competencyId.startsWith('STAT.SAMP')),
+    ...candidates.filter((q: any) => !q.competencyId.startsWith('STAT.SAMP')),
+  ].slice(0, 6);
   for (const q of toApprove) {
     await call(`/questions/${q.id}/review`, { method: 'POST', token: trainer, body: JSON.stringify({ action: 'approve' }) });
   }

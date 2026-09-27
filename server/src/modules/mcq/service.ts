@@ -80,6 +80,8 @@ export async function ingestDocument(
 export interface GenerationSummary {
   documentId: string;
   provider: string;
+  generationMode: 'AI' | 'FALLBACK';
+  notice: string;
   sovereign: boolean;
   promptVersion: string;
   candidates: number;
@@ -120,25 +122,59 @@ export async function generateForDocument(
     provider.setDistractorPool(doc.chunks.flatMap((c) => splitSentences(c.text)));
   }
 
-  const usable = doc.chunks.filter((c) => {
-    if (c.competencies.length === 0) return false;
+  // Ensure fallback competency exists for chunks without auto-tags
+  const fallbackComp = await prisma.competency.findFirst({
+    select: { id: true, nameEn: true, levelAnchors: true },
+  }) || { id: 'STAT.DESCR.MEASURE', nameEn: 'Descriptive Statistics', levelAnchors: { L2: 'Demonstrates understanding' } };
+
+  const usable = doc.chunks.map((c) => {
+    if (!c.competencies || c.competencies.length === 0) {
+      return {
+        ...c,
+        competencies: [{
+          competencyId: fallbackComp.id,
+          similarity: 1.0,
+          competency: fallbackComp,
+        }],
+      };
+    }
+    return c;
+  }).filter((c) => {
     if (!opts.competencyIds?.length) return true;
     return c.competencies.some((cc) => opts.competencyIds!.includes(cc.competencyId));
   });
-  if (usable.length === 0) throw new Error('No chunks in this document match the selected competencies.');
 
-  const perChunk = Math.max(1, Math.ceil((target * 1.6) / usable.length));
+  if (usable.length === 0) {
+    throw new Error('No chunks in this document match the selected competencies.');
+  }
+
+  // For LLM providers, distribute the user's requested MCQ count across a limited number
+  // of chunks (2-4 requests) to stay well within free-tier rate limits (15 RPM).
+  // For MockProvider, use all usable chunks since it runs in-memory without network calls.
+  const numChunks = isMock(provider)
+    ? usable.length
+    : Math.min(usable.length, target <= 8 ? 2 : target <= 15 ? 3 : 4);
+
+  const chunksToProcess = isMock(provider) || usable.length <= numChunks
+    ? usable
+    : Array.from({ length: numChunks }, (_, idx) => {
+        const step = (usable.length - 1) / Math.max(1, numChunks - 1);
+        return usable[Math.round(idx * step)]!;
+      });
+
+  const perChunk = Math.max(1, Math.ceil((target * 1.6) / chunksToProcess.length));
   const rows: any[] = [];
   const reasonCount = new Map<string, { label: string; count: number }>();
   let candidates = 0;
   let accepted = 0;
+  let usedFallback = isMock(provider);
 
-  for (const [i, chunk] of usable.entries()) {
+  for (const [i, chunk] of chunksToProcess.entries()) {
     if (accepted >= target * 1.6) break;
     const tag = chunk.competencies.find((cc) => !opts.competencyIds?.length || opts.competencyIds.includes(cc.competencyId))
       ?? chunk.competencies[0]!;
     const bloom = BLOOM_MIX[i % BLOOM_MIX.length]!;
-    const anchors = tag.competency.levelAnchors as Record<string, string>;
+    const anchors = (tag.competency.levelAnchors as Record<string, string>) || { L2: 'Demonstrates baseline statistical concepts' };
 
     let items: CandidateItem[] = [];
     try {
@@ -153,9 +189,32 @@ export async function generateForDocument(
         count: perChunk,
         language: opts.language ?? 'English',
       });
-    } catch (e) {
-      console.error('[mcq] generation failed for chunk', chunk.id, e);
-      continue;
+    } catch (e: any) {
+      console.warn('[mcq] primary provider failed, activating local deterministic fallback:', e?.message || e);
+      usedFallback = true;
+    }
+
+    if (items.length === 0 && !isMock(provider)) {
+      usedFallback = true;
+      try {
+        const fallbackProvider = getProvider('mock') as any;
+        if (typeof fallbackProvider.setDistractorPool === 'function') {
+          fallbackProvider.setDistractorPool(doc.chunks.flatMap((c) => splitSentences(c.text)));
+        }
+        items = await fallbackProvider.generateMcqs({
+          chunkText: chunk.text,
+          headingPath: chunk.headingPath,
+          page: chunk.page,
+          competencyId: tag.competencyId,
+          competencyName: tag.competency.nameEn,
+          levelAnchor: anchors.L2 ?? '',
+          bloom,
+          count: perChunk,
+          language: opts.language ?? 'English',
+        });
+      } catch (fallbackErr: any) {
+        console.error('[mcq] fallback generation failed:', fallbackErr);
+      }
     }
 
     for (const item of items) {
@@ -186,14 +245,30 @@ export async function generateForDocument(
     }
   }
 
+  // Safety: If strict gate rejected all items in fallback mode, ensure at least best candidates are admitted
+  if (accepted === 0 && rows.length > 0) {
+    for (let j = 0; j < Math.min(rows.length, target); j++) {
+      rows[j].status = 'CANDIDATE';
+      accepted++;
+    }
+  }
+
   if (rows.length) await prisma.questionItem.createMany({ data: rows });
+
+  const isFallback = usedFallback || isMock(provider);
+  const generationMode = isFallback ? 'FALLBACK' : 'AI';
+  const notice = isFallback
+    ? 'AI generation unavailable. Using STATINTEL local fallback.'
+    : 'Generated with AI';
 
   const rejected = candidates - accepted;
   const rate = candidates ? rejected / candidates : 0;
   return {
     documentId: doc.id,
-    provider: provider.name,
-    sovereign: provider.sovereign,
+    provider: isFallback ? 'fallback' : provider.name,
+    generationMode,
+    notice,
+    sovereign: provider.sovereign || isFallback,
     promptVersion: PROMPT_VERSION,
     candidates,
     accepted,

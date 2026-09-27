@@ -1,4 +1,4 @@
-// SAMIKSHA — data model
+// STATINTEL — data model
 // Rule 1: Evidence is append-only (enforced by sql/002_ledger_rules.sql).
 // Rule 2: competency scores are never a column — see sql/003_scoring.sql.
 
@@ -71,6 +71,8 @@ model Official {
   evidence    Evidence[]
   sessions    QuizSession[]
   documents   Document[]
+  createdAssignments  Assignment[] @relation("AssignmentCreator")
+  assignedAssignments Assignment[] @relation("AssignmentAssignee")
 
   @@index([departmentId])
 }
@@ -105,6 +107,7 @@ model Competency {
   evidence     Evidence[]
   questions    QuestionItem[]
   chunks       ChunkCompetency[]
+  assignments  Assignment[]
 
   @@index([domain])
 }
@@ -143,6 +146,7 @@ model Course {
   tpacFlagged  Boolean @default(false)
 
   competencies CourseCompetency[]
+  assignments  Assignment[]
 }
 
 model CourseCompetency {
@@ -213,6 +217,7 @@ model Document {
   uploadedBy  Official @relation(fields: [uploadedById], references: [id])
   chunks      Chunk[]
   questions   QuestionItem[]
+  assignments Assignment[]
 }
 
 model Chunk {
@@ -287,6 +292,7 @@ model QuizSession {
   scorePct      Float?
   official      Official @relation(fields: [officialId], references: [id], onDelete: Cascade)
   responses     ItemResponse[]
+  assignments   Assignment[]
 
   @@index([officialId, startedAt])
 }
@@ -331,4 +337,41 @@ model SurveyCalendarEntry {
   competencyIds String[]
   headcount     Int      @default(0)
   notes         String   @default("")
+}
+
+// ─────────────────────────── assignments & hands-on ───────────────────────────
+
+model Assignment {
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  instructions    String?
+  competencyId    String?
+  courseId        String?
+  difficulty      String        @default("MEDIUM") // EASY | MEDIUM | HARD
+  questionCount   Int           @default(5)
+  content         String?       @db.Text
+  documentId      String?
+  creatorId       String
+  assignedToId    String?
+  isPersonal      Boolean       @default(true) // true = learner self-directed, false = trainer assigned
+  status          String        @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | SUBMITTED | REVIEWED | COMPLETED
+  scorePct        Float?
+  quizSessionId   String?
+  feedback        String?
+  submittedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  creator         Official      @relation("AssignmentCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  assignedTo      Official?     @relation("AssignmentAssignee", fields: [assignedToId], references: [id], onDelete: Cascade)
+  competency      Competency?   @relation(fields: [competencyId], references: [id], onDelete: SetNull)
+  course          Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  document        Document?     @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  quizSession     QuizSession?  @relation(fields: [quizSessionId], references: [id], onDelete: SetNull)
+
+  @@index([creatorId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([competencyId])
 }
